@@ -40,5 +40,9 @@ LangGraph - this introduces a much more capable framework for building more comp
 
 We will also build some different utiliies that might help you on your journey to building your own agentic applications.
 
+## Free Courses Online
+
+LangChain Course - https://learn.deeplearning.ai/langchain/
+
 
 
