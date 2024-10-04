@@ -23,6 +23,34 @@ While in Beta, LangGraph Studio is available for free to all LangSmith users on 
 
 You can download it [here](https://github.com/langchain-ai/langgraph-studio), setup instructions are there also.
 
+If you run into an issue that the rust compiler doens't install, you can install it doing the following:
+
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+### Settng up jupyter notebook
+
+Jupyter Notebook is an open-source web application that enables users to create and share documents with live code, equations, visualizations, and narrative text. It supports multiple programming languages, primarily Python, allowing for interactive coding and immediate results.
+
+Commonly used for data analysis and machine learning, Jupyter Notebooks facilitate exploratory work and collaboration. They combine code and explanations in a single document, making them ideal for reproducible research and quick prototyping.
+
+Often, examples in repositories have jupyter notebooks in it (files ending in `.ipynb`), so its useful to have this handy if they do.
+
+To install (once you have properly setup your python environment):
+
+```
+pip install jupyter
+```
+
+Then from with the directory (at the command line), run the following:
+
+```
+jupyter notebook
+```
+
+This will open up a browser with a file/directory list of the directory where it was launched.
+
 ### Getting an OpenAI API Key
 
 Although you can use other LLM providers like Anthropic, Groq, and Mistral, for this series we will be using OpenAI.
@@ -46,3 +74,6 @@ LangChain Course - https://learn.deeplearning.ai/langchain/
 
 
 
+## This repo has drawn inspiration from
+
+https://github.com/NirDiamant/GenAI_Agents
