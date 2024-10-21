@@ -100,14 +100,13 @@ researcher_agent = Agent(
     name="Researcher",
     model="gpt-4o",
     instructions=f"""Perform web searches to gather relevant and current information for the team.
-    Always consider the recency of the information when searching.
-    Use the web_search function, specifying the time_period parameter as needed.
-    Valid time periods are: 'day', 'week', 'month', or 'year'.
+    Always use the web_search function to find information before responding.
+    Specify the time_period parameter as needed (day, week, month, or year).
     If not specified, use 'day' for the most recent information.
-    The time period will be automatically incorporated into your query.
-    Before performing a search, clearly state the query you're about to use.
+    Clearly state the query you're using for the search.
     Current date: {current_date.strftime('%Y-%m-%d')}
-    Always be aware of the current date when formulating queries and interpreting results.""",
+    Always be aware of the current date when formulating queries and interpreting results.
+    After performing the search, summarize the findings in your response.""",
     functions=[web_search],
 )
 logger.info("Researcher agent created")
@@ -133,7 +132,12 @@ while True:
             if content and content.strip() != "None":
                 print(f"\n{ORANGE}{name}:{RESET} {content}")
         elif message['role'] == 'function':
-            print(f"\n[System] Function '{message['name']}' called")
+            if message['name'] == 'web_search':
+                print(f"\n[System] Web search performed")
+                # Here you might want to process and display the search results
+                # For now, we'll just indicate that a search was done
+            else:
+                print(f"\n[System] Function '{message['name']}' called")
         elif message['role'] == 'tool':
             # Only print tool messages if they contain useful information
             content = message.get('content')
