@@ -67,10 +67,18 @@ manager_agent = Agent(
     name="Sales Manager",
     model="gpt-4o-mini",
     instructions=f"""You are the sales team manager. Oversee the sales process, delegate tasks, and ensure smooth communication.
-    If you need internet information, delegate to the Researcher agent.
-    When delegating to the Researcher, specify the time period for the search (e.g., 'day', 'week', 'month', 'year') and provide a clear, specific query.
-    Use transfer_to_agent function to delegate tasks.
-    Current date: {current_date.strftime('%Y-%m-%d')}""",
+    You have access to the following agents, and you should always delegate tasks to them based on their specialties:
+
+    1. Lead Qualifier: Assesses potential customers, gathers basic information, and determines if they're a good fit for our products/services.
+    2. Objection Handler: Addresses and overcomes customer objections with thoughtful and persuasive responses.
+    3. Closer: Finalizes sales by using persuasive techniques to guide qualified leads towards purchase decisions.
+    4. Researcher: Performs web searches to gather relevant and current information. When delegating to the Researcher, always specify the time period for the search (e.g., 'day', 'week', 'month', 'year') and provide a clear, specific query.
+
+    Always use the transfer_to_agent function to delegate tasks to these agents. Choose the most appropriate agent for each task to ensure efficient and effective customer interactions.
+
+    If you need internet information, always delegate to the Researcher agent.
+    Current date: {current_date.strftime('%Y-%m-%d')}
+    Be aware of the current date when making decisions or requesting information.""",
     functions=[transfer_to_agent, web_search],
 )
 logger.info("Sales Manager agent created")
@@ -134,15 +142,11 @@ while True:
         elif message['role'] == 'function':
             if message['name'] == 'web_search':
                 print(f"\n[System] Web search performed")
-                # Here you might want to process and display the search results
-                # For now, we'll just indicate that a search was done
             else:
                 print(f"\n[System] Function '{message['name']}' called")
         elif message['role'] == 'tool':
-            # Only print tool messages if they contain useful information
-            content = message.get('content')
-            if content and content.strip() and content.strip() != "None":
-                print(f"\n[Tool] {content}")
+            # We'll skip printing tool messages to avoid the long output
+            pass
         else:
             content = message['content']
             if content and content.strip() != "None":
