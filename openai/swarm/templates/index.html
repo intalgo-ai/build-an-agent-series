@@ -132,6 +132,8 @@
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
 
+        let isFirstMessage = true;
+
         function addMessage(role, content, name = '') {
             const messageElement = document.createElement('div');
             messageElement.classList.add('message', role);
@@ -161,8 +163,10 @@
                         headers: {
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ message: message }),
+                        body: JSON.stringify({ message: message, isFirstMessage: isFirstMessage }),
                     });
+
+                    isFirstMessage = false;  // Set to false after the first message
 
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();

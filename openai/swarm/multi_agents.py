@@ -71,18 +71,21 @@ def web_search(query, time_period="day"):
 manager_agent = Agent(
     name="Sales Manager",
     model="gpt-4o-mini",
-    instructions=f"""You are the sales team manager. Oversee the sales process, delegate tasks, and ensure smooth communication.
-    You have access to the following agents, and you should always delegate tasks to them based on their specialties:
+    instructions=f"""You are the sales team manager. Your primary role is to delegate tasks to the appropriate team members.
+
+    You have access to the following agents, and you must always delegate tasks to them based on their specialties:
 
     1. Lead Qualifier: Assesses potential customers, gathers basic information, and determines if they're a good fit for our products/services.
     2. Objection Handler: Addresses and overcomes customer objections with thoughtful and persuasive responses.
     3. Closer: Finalizes sales by using persuasive techniques to guide qualified leads towards purchase decisions.
     4. Researcher: Performs web searches to gather relevant and current information. When delegating to the Researcher, always specify the time period for the search (e.g., 'day', 'week', 'month', 'year') and provide a clear, specific query.
 
-    Always use the transfer_to_agent function to delegate tasks to these agents. Choose the most appropriate agent for each task to ensure efficient and effective customer interactions.
+    For every user input, your response should:
+    1. Briefly acknowledge the user's query or concern (1-2 sentences maximum).
+    2. Use the transfer_to_agent function to delegate the task to the most appropriate agent.
 
     Current date: {current_date.strftime('%Y-%m-%d')}
-    Be aware of the current date when making decisions or requesting information.""",
+    Be aware of the current date when deciding which agent to delegate to and what information to include in the delegation.""",
     functions=[transfer_to_agent],
 )
 logger.info("Sales Manager agent created")
@@ -133,12 +136,14 @@ def index():
 @app.route('/chat', methods=['POST'])
 def chat():
     user_input = request.json['message']
+    is_first_message = request.json.get('isFirstMessage', False)
     print(f"User input received: {user_input}")
 
     def generate():
         try:
-            print("Running manager agent...")
-            yield "data: " + json.dumps({"role": "system", "content": "Sales Manager is thinking..."}) + "\n\n"
+            if not is_first_message:
+                print("Running manager agent...")
+                yield "data: " + json.dumps({"role": "system", "content": "Sales Manager is thinking..."}) + "\n\n"
 
             manager_response = client.run(
                 agent=manager_agent,
@@ -150,54 +155,52 @@ def chat():
                 raise ValueError("Invalid response from manager agent")
 
             print("Processing messages...")
-            for index, message in enumerate(manager_response.messages):
-                print(f"Processing message {index}: {message}")
+            for message in manager_response.messages:
+                if message.get('role') == 'assistant':
+                    content = message.get('content')
+                    if content:
+                        print(f"Yielding message: role=assistant, content={content[:50]}...")
+                        yield "data: " + json.dumps({"role": "assistant", "name": "Sales Manager", "content": content}) + "\n\n"
 
-                # Simplified message handling
-                content = message.get('content')
-                role = message.get('role')
-
-                if content:
-                    print(f"Yielding message {index}: role={role}, content={content[:50]}...")
-                    yield "data: " + json.dumps({"role": role, "name": message.get('name', 'Sales Manager'), "content": content}) + "\n\n"
-                else:
-                    print(f"Message {index} has no content, checking for function call...")
-
-                # Check for function call
                 function_call = message.get('function_call') or (message.get('tool_calls') and message['tool_calls'][0]['function'])
                 if function_call:
                     function_name = function_call.get('name')
                     function_args = json.loads(function_call.get('arguments', '{}'))
-                    print(f"Function call detected in message {index}: {function_name}, args: {function_args}")
+                    print(f"Function call detected: {function_name}, args: {function_args}")
 
                     if function_name == 'transfer_to_agent':
                         agent_name = function_args.get('agent_name')
-                        delegation_message = f"Delegating to {agent_name}..."
-                        print(f"Yielding delegation message: {delegation_message}")
-                        yield "data: " + json.dumps({"role": "system", "content": delegation_message}) + "\n\n"
-
                         if agent_name == 'Researcher':
-                            hello_world_message = "Hello World from the Researcher!"
-                            print(f"Yielding hello world message: {hello_world_message}")
-                            yield "data: " + json.dumps({"role": "system", "content": hello_world_message}) + "\n\n"
+                            query = function_args.get('query', user_input)
+                            researcher_message = f"Oh, I'll need to search for '{query}'"
+                            print(f"Yielding researcher message: {researcher_message}")
+                            yield "data: " + json.dumps({"role": "assistant", "name": "Researcher", "content": researcher_message}) + "\n\n"
 
                             print("Calling Researcher agent...")
                             researcher_response = client.run(
                                 agent=researcher_agent,
-                                messages=[{"role": "user", "content": function_args.get('query', user_input)}],
+                                messages=[{"role": "user", "content": query}],
                             )
 
                             if researcher_response and hasattr(researcher_response, 'messages'):
                                 for r_message in researcher_response.messages:
                                     r_content = r_message.get('content')
-                                    if r_content:
+                                    if r_content and isinstance(r_content, str):
                                         print(f"Yielding researcher message: {r_content[:50]}...")
                                         yield "data: " + json.dumps({"role": "assistant", "name": "Researcher", "content": r_content}) + "\n\n"
+                                    elif r_content and isinstance(r_content, dict) and 'results' in r_content:
+                                        # This is the search result
+                                        num_results = len(r_content['results'])
+                                        summary = f"I've found {num_results} relevant sources. Here's a brief summary:"
+                                        for i, result in enumerate(r_content['results'][:3], 1):  # Limit to top 3 results
+                                            summary += f"\n\n{i}. {result['title']}\n   {result['content'][:100]}..."
+                                        print(f"Yielding researcher summary: {summary[:50]}...")
+                                        yield "data: " + json.dumps({"role": "assistant", "name": "Researcher", "content": summary}) + "\n\n"
                             else:
                                 print("Invalid or empty response from Researcher agent")
                                 yield "data: " + json.dumps({"role": "system", "content": "Researcher couldn't find any information."}) + "\n\n"
 
-            print("All messages processed")
+            print("Processing complete")
 
         except Exception as e:
             error_message = f"An error occurred: {str(e)}"
