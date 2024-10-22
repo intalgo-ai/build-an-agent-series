@@ -1,3 +1,6 @@
+from flask import Flask, request, jsonify, render_template
+from functools import wraps
+from flask_cors import CORS
 from swarm import Swarm, Agent
 from dotenv import load_dotenv
 import os
@@ -106,7 +109,7 @@ logger.info("Closer agent created")
 
 researcher_agent = Agent(
     name="Researcher",
-    model="gpt-4o",
+    model="gpt-4",
     instructions=f"""Perform web searches to gather relevant and current information for the team.
     Always use the web_search function to find information before responding.
     Specify the time_period parameter as needed (day, week, month, or year).
@@ -119,37 +122,40 @@ researcher_agent = Agent(
 )
 logger.info("Researcher agent created")
 
-# ===== Main Interaction Loop =====
-print("Welcome to the AI Sales Team! (Type 'exit' to end the conversation)")
-while True:
-    user_input = input(f"\n{BLUE}You:{RESET} ")
-    if user_input.lower() == 'exit':
-        print("Thank you for using the AI Sales Team. Goodbye!")
-        break
+# Update the Flask setup
+app = Flask(__name__)
 
-    print("\n[System] Processing your request...")
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_input = request.json['message']
+    
     response = client.run(
         agent=manager_agent,
         messages=[{"role": "user", "content": user_input}],
     )
-
+    
+    formatted_messages = []
     for message in response.messages:
         if message['role'] == 'assistant':
             name = message.get('name', 'Assistant')
             content = message['content']
             if content and content.strip() != "None":
-                print(f"\n{ORANGE}{name}:{RESET} {content}")
+                formatted_messages.append({"role": "assistant", "name": name, "content": content})
         elif message['role'] == 'function':
             if message['name'] == 'web_search':
-                print(f"\n[System] Web search performed")
+                formatted_messages.append({"role": "system", "content": "Web search performed"})
             else:
-                print(f"\n[System] Function '{message['name']}' called")
-        elif message['role'] == 'tool':
-            # We'll skip printing tool messages to avoid the long output
-            pass
-        else:
+                formatted_messages.append({"role": "system", "content": f"Function '{message['name']}' called"})
+        elif message['role'] != 'tool':
             content = message['content']
             if content and content.strip() != "None":
-                print(f"\n{message['role'].capitalize()}: {content}")
+                formatted_messages.append({"role": message['role'], "content": content})
+    
+    return jsonify({"messages": formatted_messages})
 
-print("\n[System] Conversation ended")
+if __name__ == '__main__':
+    app.run(debug=True)
