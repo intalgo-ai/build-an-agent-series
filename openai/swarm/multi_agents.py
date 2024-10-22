@@ -7,6 +7,7 @@ import os
 from tavily import TavilyClient
 import logging
 from datetime import datetime
+import markdown
 
 # Add these color codes at the beginning of the file, after the imports
 BLUE = "\033[94m"
@@ -144,7 +145,9 @@ def chat():
             name = message.get('name', 'Assistant')
             content = message['content']
             if content and content.strip() != "None":
-                formatted_messages.append({"role": "assistant", "name": name, "content": content})
+                # Convert the content to HTML
+                content_html = markdown.markdown(content)
+                formatted_messages.append({"role": "assistant", "name": name, "content": content_html})
         elif message['role'] == 'function':
             if message['name'] == 'web_search':
                 formatted_messages.append({"role": "system", "content": "Web search performed"})
@@ -153,7 +156,9 @@ def chat():
         elif message['role'] != 'tool':
             content = message['content']
             if content and content.strip() != "None":
-                formatted_messages.append({"role": message['role'], "content": content})
+                # Convert the content to HTML
+                content_html = markdown.markdown(content)
+                formatted_messages.append({"role": message['role'], "content": content_html})
     
     return jsonify({"messages": formatted_messages})
 

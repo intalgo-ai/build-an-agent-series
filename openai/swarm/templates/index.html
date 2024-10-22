@@ -91,6 +91,31 @@
             color: #666;
             font-style: italic;
         }
+        .message-content {
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        .message-content p {
+            margin: 0 0 10px 0;
+        }
+        .message-content p:last-child {
+            margin-bottom: 0;
+        }
+        .message-content ul, .message-content ol {
+            margin: 0 0 10px 0;
+            padding-left: 20px;
+        }
+        .message-content pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .message-content code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
     </style>
 </head>
 <body>
@@ -110,11 +135,14 @@
         function addMessage(role, content, name = '') {
             const messageElement = document.createElement('div');
             messageElement.classList.add('message', role);
+            const contentElement = document.createElement('div');
+            contentElement.classList.add('message-content');
             if (role === 'assistant' && name) {
-                messageElement.innerHTML = `<strong>${name}:</strong> ${content}`;
+                contentElement.innerHTML = `<strong>${name}:</strong> ${content}`;
             } else {
-                messageElement.textContent = content;
+                contentElement.innerHTML = content;
             }
+            messageElement.appendChild(contentElement);
             messagesContainer.appendChild(messageElement);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
