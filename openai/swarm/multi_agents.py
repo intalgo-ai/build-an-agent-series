@@ -133,34 +133,69 @@ def index():
 @app.route('/chat', methods=['POST'])
 def chat():
     user_input = request.json['message']
-    
-    response = client.run(
-        agent=manager_agent,
-        messages=[{"role": "user", "content": user_input}],
-    )
+    print(f"Received user input: {user_input}")  # Debug print
     
     formatted_messages = []
-    for message in response.messages:
-        if message['role'] == 'assistant':
-            name = message.get('name', 'Assistant')
-            content = message['content']
-            if content and content.strip() != "None":
-                # Convert the content to HTML
-                content_html = markdown.markdown(content)
-                formatted_messages.append({"role": "assistant", "name": name, "content": content_html})
-        elif message['role'] == 'function':
-            if message['name'] == 'web_search':
-                formatted_messages.append({"role": "system", "content": "Web search performed"})
-            else:
-                formatted_messages.append({"role": "system", "content": f"Function '{message['name']}' called"})
-        elif message['role'] != 'tool':
-            content = message['content']
-            if content and content.strip() != "None":
-                # Convert the content to HTML
-                content_html = markdown.markdown(content)
-                formatted_messages.append({"role": message['role'], "content": content_html})
     
-    return jsonify({"messages": formatted_messages})
+    try:
+        # Sales Manager's initial response
+        manager_response = client.run(
+            agent=manager_agent,
+            messages=[{"role": "user", "content": user_input}],
+        )
+        
+        print("Manager response:", manager_response)  # Debug print
+        
+        if not manager_response.messages:
+            print("No messages in manager_response")  # Debug print
+            return jsonify({"messages": [{"role": "system", "content": "The Sales Manager did not provide a response."}]})
+        
+        for message in manager_response.messages:
+            print(f"Processing message: {message}")  # Debug print
+            if message['role'] == 'assistant':
+                content = message['content']
+                if content and content.strip() != "None":
+                    content_html = markdown.markdown(content)
+                    formatted_messages.append({"role": "assistant", "name": "Sales Manager", "content": content_html})
+                    print("Added Sales Manager message")  # Debug print
+            elif message['role'] == 'function' and message['name'] == 'transfer_to_agent':
+                delegated_agent_name = message['arguments']['agent_name']
+                formatted_messages.append({"role": "system", "content": f"Delegating to {delegated_agent_name}"})
+                print(f"Delegating to {delegated_agent_name}")  # Debug print
+                
+                # Run the delegated agent
+                delegated_agent = transfer_to_agent(delegated_agent_name)
+                if delegated_agent:
+                    agent_response = client.run(
+                        agent=delegated_agent,
+                        messages=[{"role": "user", "content": user_input}],
+                    )
+                    
+                    print(f"{delegated_agent_name} response:", agent_response)  # Debug print
+                    
+                    for agent_message in agent_response.messages:
+                        if agent_message['role'] == 'assistant':
+                            content = agent_message['content']
+                            if content and content.strip() != "None":
+                                content_html = markdown.markdown(content)
+                                formatted_messages.append({"role": "assistant", "name": delegated_agent_name, "content": content_html})
+                                print(f"Added {delegated_agent_name} message")  # Debug print
+                else:
+                    formatted_messages.append({"role": "system", "content": f"Error: {delegated_agent_name} not found"})
+        
+        if not formatted_messages:
+            print("No formatted messages")  # Debug print
+            return jsonify({"messages": [{"role": "system", "content": "No response was generated."}]})
+        
+        print("Formatted messages:", formatted_messages)  # Debug print
+        return jsonify({"messages": formatted_messages})
+    
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")  # Debug print
+        return jsonify({"messages": [{"role": "system", "content": f"An error occurred: {str(e)}"}]})
+    
+    finally:
+        print("Finally block executed")  # Debug print
 
 if __name__ == '__main__':
     app.run(debug=True)

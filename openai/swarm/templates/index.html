@@ -139,6 +139,8 @@
             contentElement.classList.add('message-content');
             if (role === 'assistant' && name) {
                 contentElement.innerHTML = `<strong>${name}:</strong> ${content}`;
+            } else if (role === 'system') {
+                contentElement.innerHTML = `<em>${content}</em>`;
             } else {
                 contentElement.innerHTML = content;
             }
@@ -172,8 +174,17 @@
                         body: JSON.stringify({ message: message }),
                     });
                     const data = await response.json();
+                    console.log("Received data:", data);  // Debug log
                     thinkingElement.remove();
-                    data.messages.forEach(msg => addMessage(msg.role, msg.content, msg.name));
+                    if (data.messages && data.messages.length > 0) {
+                        data.messages.forEach(msg => {
+                            console.log("Adding message:", msg);  // Debug log
+                            addMessage(msg.role, msg.content, msg.name);
+                        });
+                    } else {
+                        console.log("No messages received");  // Debug log
+                        addMessage('system', 'No response received from the server.');
+                    }
                 } catch (error) {
                     console.error('Error:', error);
                     thinkingElement.remove();
