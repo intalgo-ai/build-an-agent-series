@@ -57,14 +57,14 @@ def web_search(query, time_period="day"):
         "month": f"in the last month (current date: {current_date.strftime('%Y-%m-%d')})",
         "year": f"in the year {current_year}"
     }.get(time_period, f"recently (current date: {current_date.strftime('%Y-%m-%d')})")
-    
+
     modified_query = f"{query} {time_phrase}"
-    
+
     print(f"\n[System] Performing web search:")
     print(f"Query: '{modified_query}'")
     print(f"Time period: {time_period}")
-    
-    return tavily_client.search(modified_query, search_depth="advanced", time_range=time_period)
+
+    return tavily_client.search(modified_query, search_depth="advanced")
 
 # ===== Agent Definitions =====
 # Define the sales team agents
@@ -133,34 +133,79 @@ def index():
 @app.route('/chat', methods=['POST'])
 def chat():
     user_input = request.json['message']
-    print(f"User: {user_input}")  # Log user input
+    print(f"User input received: {user_input}")
 
     def generate():
         try:
-            print("Sales Manager is thinking...")
+            print("Running manager agent...")
             yield "data: " + json.dumps({"role": "system", "content": "Sales Manager is thinking..."}) + "\n\n"
-            
+
             manager_response = client.run(
                 agent=manager_agent,
                 messages=[{"role": "user", "content": user_input}],
             )
-            
-            for message in manager_response.messages:
-                if message.get('role') == 'assistant':
-                    content = message.get('content')
-                    if content and content.strip() != "None":
-                        content_html = markdown.markdown(content)
-                        print(f"Sales Manager: {content}")
-                        yield "data: " + json.dumps({"role": "assistant", "name": "Sales Manager", "content": content_html}) + "\n\n"
-                
-                elif message.get('role') == 'function':
-                    function_name = message.get('name')
-                    print(f"Sales Manager is calling function: {function_name}")
-                    yield "data: " + json.dumps({"role": "system", "content": f"Sales Manager is performing a {function_name}..."}) + "\n\n"
+
+            print(f"Manager response received: {manager_response}")
+            if manager_response is None or not hasattr(manager_response, 'messages'):
+                raise ValueError("Invalid response from manager agent")
+
+            print("Processing messages...")
+            for index, message in enumerate(manager_response.messages):
+                print(f"Processing message {index}: {message}")
+
+                # Simplified message handling
+                content = message.get('content')
+                role = message.get('role')
+
+                if content:
+                    print(f"Yielding message {index}: role={role}, content={content[:50]}...")
+                    yield "data: " + json.dumps({"role": role, "name": message.get('name', 'Sales Manager'), "content": content}) + "\n\n"
+                else:
+                    print(f"Message {index} has no content, checking for function call...")
+
+                # Check for function call
+                function_call = message.get('function_call') or (message.get('tool_calls') and message['tool_calls'][0]['function'])
+                if function_call:
+                    function_name = function_call.get('name')
+                    function_args = json.loads(function_call.get('arguments', '{}'))
+                    print(f"Function call detected in message {index}: {function_name}, args: {function_args}")
+
+                    if function_name == 'transfer_to_agent':
+                        agent_name = function_args.get('agent_name')
+                        delegation_message = f"Delegating to {agent_name}..."
+                        print(f"Yielding delegation message: {delegation_message}")
+                        yield "data: " + json.dumps({"role": "system", "content": delegation_message}) + "\n\n"
+
+                        if agent_name == 'Researcher':
+                            hello_world_message = "Hello World from the Researcher!"
+                            print(f"Yielding hello world message: {hello_world_message}")
+                            yield "data: " + json.dumps({"role": "system", "content": hello_world_message}) + "\n\n"
+
+                            print("Calling Researcher agent...")
+                            researcher_response = client.run(
+                                agent=researcher_agent,
+                                messages=[{"role": "user", "content": function_args.get('query', user_input)}],
+                            )
+
+                            if researcher_response and hasattr(researcher_response, 'messages'):
+                                for r_message in researcher_response.messages:
+                                    r_content = r_message.get('content')
+                                    if r_content:
+                                        print(f"Yielding researcher message: {r_content[:50]}...")
+                                        yield "data: " + json.dumps({"role": "assistant", "name": "Researcher", "content": r_content}) + "\n\n"
+                            else:
+                                print("Invalid or empty response from Researcher agent")
+                                yield "data: " + json.dumps({"role": "system", "content": "Researcher couldn't find any information."}) + "\n\n"
+
+            print("All messages processed")
 
         except Exception as e:
-            print(f"An error occurred: {str(e)}")
-            yield "data: " + json.dumps({"role": "system", "content": f"An error occurred: {str(e)}"}) + "\n\n"
+            error_message = f"An error occurred: {str(e)}"
+            print(f"Error: {error_message}")
+            print(f"Error details: {type(e).__name__}, {str(e)}")
+            import traceback
+            traceback.print_exc()
+            yield "data: " + json.dumps({"role": "system", "content": error_message}) + "\n\n"
 
     return Response(stream_with_context(generate()), content_type='text/event-stream')
 
