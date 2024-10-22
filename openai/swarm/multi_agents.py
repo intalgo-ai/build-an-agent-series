@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, stream_with_context, Response
 from functools import wraps
 from flask_cors import CORS
 from swarm import Swarm, Agent
@@ -8,6 +8,7 @@ from tavily import TavilyClient
 import logging
 from datetime import datetime
 import markdown
+import json
 
 # Add these color codes at the beginning of the file, after the imports
 BLUE = "\033[94m"
@@ -80,10 +81,9 @@ manager_agent = Agent(
 
     Always use the transfer_to_agent function to delegate tasks to these agents. Choose the most appropriate agent for each task to ensure efficient and effective customer interactions.
 
-    If you need internet information, always delegate to the Researcher agent.
     Current date: {current_date.strftime('%Y-%m-%d')}
     Be aware of the current date when making decisions or requesting information.""",
-    functions=[transfer_to_agent, web_search],
+    functions=[transfer_to_agent],
 )
 logger.info("Sales Manager agent created")
 
@@ -133,69 +133,36 @@ def index():
 @app.route('/chat', methods=['POST'])
 def chat():
     user_input = request.json['message']
-    print(f"Received user input: {user_input}")  # Debug print
-    
-    formatted_messages = []
-    
-    try:
-        # Sales Manager's initial response
-        manager_response = client.run(
-            agent=manager_agent,
-            messages=[{"role": "user", "content": user_input}],
-        )
-        
-        print("Manager response:", manager_response)  # Debug print
-        
-        if not manager_response.messages:
-            print("No messages in manager_response")  # Debug print
-            return jsonify({"messages": [{"role": "system", "content": "The Sales Manager did not provide a response."}]})
-        
-        for message in manager_response.messages:
-            print(f"Processing message: {message}")  # Debug print
-            if message['role'] == 'assistant':
-                content = message['content']
-                if content and content.strip() != "None":
-                    content_html = markdown.markdown(content)
-                    formatted_messages.append({"role": "assistant", "name": "Sales Manager", "content": content_html})
-                    print("Added Sales Manager message")  # Debug print
-            elif message['role'] == 'function' and message['name'] == 'transfer_to_agent':
-                delegated_agent_name = message['arguments']['agent_name']
-                formatted_messages.append({"role": "system", "content": f"Delegating to {delegated_agent_name}"})
-                print(f"Delegating to {delegated_agent_name}")  # Debug print
+    print(f"User: {user_input}")  # Log user input
+
+    def generate():
+        try:
+            print("Sales Manager is thinking...")
+            yield "data: " + json.dumps({"role": "system", "content": "Sales Manager is thinking..."}) + "\n\n"
+            
+            manager_response = client.run(
+                agent=manager_agent,
+                messages=[{"role": "user", "content": user_input}],
+            )
+            
+            for message in manager_response.messages:
+                if message.get('role') == 'assistant':
+                    content = message.get('content')
+                    if content and content.strip() != "None":
+                        content_html = markdown.markdown(content)
+                        print(f"Sales Manager: {content}")
+                        yield "data: " + json.dumps({"role": "assistant", "name": "Sales Manager", "content": content_html}) + "\n\n"
                 
-                # Run the delegated agent
-                delegated_agent = transfer_to_agent(delegated_agent_name)
-                if delegated_agent:
-                    agent_response = client.run(
-                        agent=delegated_agent,
-                        messages=[{"role": "user", "content": user_input}],
-                    )
-                    
-                    print(f"{delegated_agent_name} response:", agent_response)  # Debug print
-                    
-                    for agent_message in agent_response.messages:
-                        if agent_message['role'] == 'assistant':
-                            content = agent_message['content']
-                            if content and content.strip() != "None":
-                                content_html = markdown.markdown(content)
-                                formatted_messages.append({"role": "assistant", "name": delegated_agent_name, "content": content_html})
-                                print(f"Added {delegated_agent_name} message")  # Debug print
-                else:
-                    formatted_messages.append({"role": "system", "content": f"Error: {delegated_agent_name} not found"})
-        
-        if not formatted_messages:
-            print("No formatted messages")  # Debug print
-            return jsonify({"messages": [{"role": "system", "content": "No response was generated."}]})
-        
-        print("Formatted messages:", formatted_messages)  # Debug print
-        return jsonify({"messages": formatted_messages})
-    
-    except Exception as e:
-        print(f"An error occurred: {str(e)}")  # Debug print
-        return jsonify({"messages": [{"role": "system", "content": f"An error occurred: {str(e)}"}]})
-    
-    finally:
-        print("Finally block executed")  # Debug print
+                elif message.get('role') == 'function':
+                    function_name = message.get('name')
+                    print(f"Sales Manager is calling function: {function_name}")
+                    yield "data: " + json.dumps({"role": "system", "content": f"Sales Manager is performing a {function_name}..."}) + "\n\n"
+
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+            yield "data: " + json.dumps({"role": "system", "content": f"An error occurred: {str(e)}"}) + "\n\n"
+
+    return Response(stream_with_context(generate()), content_type='text/event-stream')
 
 if __name__ == '__main__':
     app.run(debug=True)

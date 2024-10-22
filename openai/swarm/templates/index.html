@@ -149,21 +149,11 @@
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        function addThinkingMessage() {
-            const thinkingElement = document.createElement('div');
-            thinkingElement.classList.add('thinking');
-            thinkingElement.textContent = 'Thinking...';
-            messagesContainer.appendChild(thinkingElement);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            return thinkingElement;
-        }
-
         async function sendMessage() {
             const message = messageInput.value.trim();
             if (message) {
                 addMessage('user', message);
                 messageInput.value = '';
-                const thinkingElement = addThinkingMessage();
 
                 try {
                     const response = await fetch('/chat', {
@@ -173,21 +163,30 @@
                         },
                         body: JSON.stringify({ message: message }),
                     });
-                    const data = await response.json();
-                    console.log("Received data:", data);  // Debug log
-                    thinkingElement.remove();
-                    if (data.messages && data.messages.length > 0) {
-                        data.messages.forEach(msg => {
-                            console.log("Adding message:", msg);  // Debug log
-                            addMessage(msg.role, msg.content, msg.name);
-                        });
-                    } else {
-                        console.log("No messages received");  // Debug log
-                        addMessage('system', 'No response received from the server.');
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value);
+                        const lines = chunk.split('\n\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    console.log("Received data:", data);  // Debug log
+                                    addMessage(data.role, data.content, data.name);
+                                } catch (error) {
+                                    console.error("Error parsing JSON:", error);
+                                }
+                            }
+                        }
                     }
                 } catch (error) {
                     console.error('Error:', error);
-                    thinkingElement.remove();
                     addMessage('system', 'An error occurred. Please try again.');
                 }
             }
