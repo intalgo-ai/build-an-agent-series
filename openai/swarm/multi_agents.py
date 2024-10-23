@@ -314,7 +314,6 @@ def chat():
                             current_agent = "Sales Manager"
                             yield "data: " + json.dumps({"role": "system", "content": "Transferring back to Sales Manager..."}) + "\n\n"
 
-                yield "data: " + json.dumps({"role": "system", "content": "Waiting for user input..."}) + "\n\n"
                 break  # Exit the generator to wait for the next user input
 
             except Exception as e:
