@@ -88,7 +88,7 @@ Measuring the success of a digital transformation initiative involves setting ke
 Digital transformation is a journey, not a destination. Organizations that succeed in digital transformation continuously evolve their strategies, adapt to changing technologies, and place a strong emphasis on data management and employee engagement. By following a structured framework and embracing a culture of innovation, companies can position themselves for long-term success in a digital-first world.
 """
 
-index = pc.Index('n8n')
+index = pc.Index('n8n')  # Ensure you put in the name of the index that you created in pinecone here
 print("Assigned Pinecone index 'n8n'")
 
 # Generate and store chunks
