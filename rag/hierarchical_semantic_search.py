@@ -84,13 +84,8 @@ def generate_response(question, top_k=5):
         top_k=top_k,
         include_metadata=True
     )
-<<<<<<< HEAD
 
     # Prepare context from the relevant chunks
-=======
-    
-    # Prepare context
->>>>>>> a73eead (Added a create_reference_list method to help cite references to the vector store chunks)
     context = ""
     for match in search_results['matches']:
         section = match.metadata.get('Section', 'General')
