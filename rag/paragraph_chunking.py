@@ -34,7 +34,7 @@ Digital transformation is the integration of digital technology into all areas o
 A successful digital strategy incorporates several key components:
 
 - **Leadership and Vision**: Leadership teams must establish a clear vision for digital transformation, outlining goals, strategies, and measurable outcomes.
-  
+
 - **Data Management**: Data is a core asset for any organization. Proper data management practices, including data collection, storage, security, and analysis, are essential for making informed decisions.
 
 - **Technology Selection**: Choosing the right technology involves assessing current capabilities, understanding future needs, and selecting tools that align with the organization’s objectives.
@@ -83,8 +83,8 @@ Measuring the success of a digital transformation initiative involves setting ke
 Digital transformation is a journey, not a destination. Organizations that succeed in digital transformation continuously evolve their strategies, adapt to changing technologies, and place a strong emphasis on data management and employee engagement. By following a structured framework and embracing a culture of innovation, companies can position themselves for long-term success in a digital-first world.
 """
 
-index = pc.Index('n8n')  # Ensure you put in the name of the index that you created in pinecone here
-print("Assigned Pinecone index 'n8n'")
+index = pc.Index('insert_your_index_name_here')  # Ensure you put in the name of the index that you created in pinecone here
+print("Assigned Pinecone index 'insert_your_index_name_here'")
 
 # Generate and store chunks
 print("Starting to process and store text chunks...")
@@ -93,7 +93,7 @@ for i, chunk in enumerate(paragraph_based_chunking(text)):
     response = client.embeddings.create(input=chunk, model="text-embedding-3-small")
     embedding = response.data[0].embedding
     print(f"Generated embedding for chunk {i+1}")
-    
+
     index.upsert(
         vectors=[(f"document_1_chunk_{i}", embedding, {"text": chunk})],
         namespace="paragraph_chunking"

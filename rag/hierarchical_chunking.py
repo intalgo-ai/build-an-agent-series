@@ -35,7 +35,7 @@ def process_markdown(markdown_content):
                 "section": current_section,
                 "subsection": current_subsection
             })
-    
+
     return content_blocks
 
 # Example text
@@ -109,8 +109,8 @@ Measuring the success of a digital transformation initiative involves setting ke
 Digital transformation is a journey, not a destination. Organizations that succeed in digital transformation continuously evolve their strategies, adapt to changing technologies, and place a strong emphasis on data management and employee engagement. By following a structured framework and embracing a culture of innovation, companies can position themselves for long-term success in a digital-first world.
 """
 
-index = pc.Index('n8n') # Ensure you put in the name of the index that you created in pinecone here
-print("Assigned Pinecone index 'n8n'")
+index = pc.Index('insert_your_index_name_here') # Ensure you put in the name of the index that you created in pinecone here
+print("Assigned Pinecone index 'insert_your_index_name_here'")
 
 # Process the markdown content and retrieve content with metadata
 content_blocks = process_markdown(text)
@@ -123,20 +123,20 @@ for i, block in enumerate(content_blocks):
         response = client.embeddings.create(input=block["content"], model="text-embedding-3-small")
         embedding = response.data[0].embedding
         print(f"Generated embedding for chunk {i+1}")
-        
+
         # Clean metadata by removing None values and ensuring proper types
         metadata = {
             "DocID": "document_1",
             "ChunkNumber": i,
             "text": block["content"]
         }
-        
+
         # Only add section and subsection if they exist
         if block.get("section"):
             metadata["Section"] = block["section"]
         if block.get("subsection"):
             metadata["Subsection"] = block["subsection"]
-        
+
         index.upsert(
             vectors=[(f"document_1_chunk_{i}", embedding, metadata)],
             namespace="hierarchical_chunking"

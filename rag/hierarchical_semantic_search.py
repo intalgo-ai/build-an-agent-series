@@ -13,7 +13,7 @@ pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 # Initialize the OpenAI client
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-index = pc.Index('n8n') # Ensure you put in the name of the index that you created in pinecone here
+index = pc.Index('insert_your_index_name_here') # Ensure you put in the name of the index that you created in pinecone here
 
 def semantic_search(question, top_k=5):
     # Generate embedding for the question
@@ -21,7 +21,7 @@ def semantic_search(question, top_k=5):
         input=question,
         model="text-embedding-3-small"
     ).data[0].embedding
-    
+
     # Search Pinecone index
     search_results = index.query(
         namespace="hierarchical_chunking",
@@ -29,7 +29,7 @@ def semantic_search(question, top_k=5):
         top_k=top_k,
         include_metadata=True
     )
-    
+
     print(f"\nTop {top_k} relevant chunks for question: '{question}'\n")
     for i, match in enumerate(search_results['matches'], 1):
         print(f"--- Match {i} (Score: {match.score:.4f}) ---")
@@ -43,7 +43,7 @@ def generate_response(question, top_k=5):
         input=question,
         model="text-embedding-3-small"
     ).data[0].embedding
-    
+
     # Search Pinecone index
     search_results = index.query(
         namespace="hierarchical_chunking",
@@ -51,7 +51,7 @@ def generate_response(question, top_k=5):
         top_k=top_k,
         include_metadata=True
     )
-    
+
     # Prepare context from the relevant chunks
     context = ""
     for match in search_results['matches']:
@@ -90,10 +90,10 @@ def generate_response(question, top_k=5):
 if __name__ == "__main__":
     # Test question
     question = "What are the key components of a digital strategy?"
-    
+
     print("\n=== Relevant Chunks ===")
     semantic_search(question)
-    
+
     print("\n=== AI Generated Response ===")
     answer = generate_response(question)
     print(answer)
